@@ -18,14 +18,26 @@ export function defaultSettings(platform = process.platform) {
   };
 }
 
+const RANGES = {
+  maxClips: [1, 100000],
+  pollMs: [100, 5000],
+  pasteDelayMs: [0, 2000],
+  previewChars: [50, 5000],
+  thumbMaxPx: [32, 1024],
+};
+
 export function mergeSettings(partial, platform = process.platform) {
   const defaults = defaultSettings(platform);
   const out = { ...defaults };
   if (!partial || typeof partial !== 'object') return out;
   for (const key of Object.keys(defaults)) {
-    if (key in partial && typeof partial[key] === typeof defaults[key]) {
-      out[key] = partial[key];
+    if (!(key in partial) || typeof partial[key] !== typeof defaults[key]) continue;
+    const value = partial[key];
+    if (typeof value === 'number') {
+      const [min, max] = RANGES[key];
+      if (!Number.isFinite(value) || value < min || value > max) continue;
     }
+    out[key] = value;
   }
   return out;
 }

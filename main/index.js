@@ -1,5 +1,5 @@
 // Klipp main process bootstrap.
-import { app, globalShortcut } from 'electron';
+import { app, clipboard, globalShortcut, Menu } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createStore } from './store.js';
@@ -61,7 +61,14 @@ app.whenReady().then(() => {
   const store = createStore(persistence.load());
   store.onChange(() => persistence.scheduleSave(store.toJSON()));
 
-  const capture = startCapture({ store, persistence, settings, log });
+  // Minimal application menu: Edit roles keep Cmd+C/V/A working in the search field on macOS,
+  // and there is no File > Close Window to destroy the popup.
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { label: 'Klipp', submenu: [{ role: 'hide' }, { role: 'quit' }] },
+    { label: 'Redigera', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
+  ]));
+
+  const capture = startCapture({ store, persistence, settings, clipboard, log });
   const popup = createPopup({ settings, persistence, log });
 
   const paste = (ids, plain) => pasteClips({

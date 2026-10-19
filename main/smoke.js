@@ -111,6 +111,13 @@ export async function runSmoke({ app, popup, store, persistence, dir, log }) {
     await sleep(250);
     report.steps.push({ step: 'removed second', gone: store.get(second.id) === undefined });
 
+    popup.window.close();
+    await sleep(300);
+    popup.show();
+    await sleep(300);
+    report.steps.push({ step: 'close() hides instead of destroying', destroyed: popup.window.isDestroyed(), visibleAfterShow: popup.isVisible() });
+    await popup.hide();
+
     report.ok = true;
   } catch (err) {
     report.ok = false;

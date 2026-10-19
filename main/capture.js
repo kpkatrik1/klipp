@@ -1,31 +1,40 @@
-// Clipboard polling loop (Electron glue). Cheap type queries every tick; data reads only
-// when needed; image decode only when the raw-bytes hash is new.
-import { clipboard } from 'electron';
+// Clipboard polling loop. Cheap type queries every tick; data reads only when needed;
+// image decode only when the raw-bytes hash is new. The clipboard object is injected
+// (Electron's `clipboard` in production, a fake in tests), so this module stays pure.
 import { randomUUID } from 'node:crypto';
 import { shouldCapture, classify, textHash, imageHash, fileHash } from './fingerprint.js';
 
-const darwin = process.platform === 'darwin';
-
-function readMacImageBytes() {
-  const tiff = clipboard.readBuffer('public.tiff');
-  if (tiff.length > 0) return tiff;
-  return clipboard.readBuffer('public.png');
-}
-
-function readFileUrl(formats) {
-  if (!darwin || !formats.includes('text/uri-list')) return '';
-  try {
-    return clipboard.readBuffer('public.file-url').toString('utf8').trim();
-  } catch {
-    return '';
-  }
-}
-
-export function startCapture({ store, persistence, settings, log = console.log }) {
+export function startCapture({ store, persistence, settings, clipboard, platform = process.platform, log = console.log }) {
+  const darwin = platform === 'darwin';
   let lastHash = null;
   let paused = false;
   let timer = null;
 
+  function readImageBytes() {
+    if (!darwin) return clipboard.readImage().toBitmap(); // dev only (Windows)
+    if (clipboard.has('public.png')) {
+      const png = clipboard.readBuffer('public.png');
+      if (png.length > 0) return png;
+    }
+    return clipboard.readBuffer('public.tiff');
+  }
+
+  function readTextBytes() {
+    if (!darwin) return clipboard.readText();
+    const bytes = clipboard.readBuffer('public.utf8-plain-text');
+    return bytes.length > 0 ? bytes : clipboard.readText();
+  }
+
+  function readFileUrl(formats) {
+    if (!darwin || !formats.includes('text/uri-list')) return '';
+    try {
+      return clipboard.readBuffer('public.file-url').toString('utf8').trim();
+    } catch {
+      return '';
+    }
+  }
+
+  // Cheap identity of what is on the clipboard right now, without decoding anything.
   function snapshot() {
     const formats = clipboard.availableFormats();
     const concealed = darwin && (
@@ -38,22 +47,27 @@ export function startCapture({ store, persistence, settings, log = console.log }
     if (!kind) return null;
 
     if (kind === 'text') {
-      const text = clipboard.readText();
-      const hash = textHash(text);
-      return hash ? { kind, hash, text, formats } : null;
-    }
-    if (kind === 'image') {
-      const bytes = darwin ? readMacImageBytes() : clipboard.readImage().toBitmap();
-      const hash = imageHash(bytes);
+      const hash = textHash(readTextBytes());
       return hash ? { kind, hash, formats } : null;
     }
-    const filePath = decodeURIComponent(new URL(fileUrl).pathname);
+    if (kind === 'image') {
+      const hash = imageHash(readImageBytes());
+      return hash ? { kind, hash, formats } : null;
+    }
+    let filePath;
+    try {
+      filePath = decodeURIComponent(new URL(fileUrl).pathname);
+    } catch {
+      return { kind: null, hash: 'badfile:' + fileUrl, formats };
+    }
     return { kind, hash: fileHash(filePath), filePath, formats };
   }
 
+  // Full read, done once per new hash.
   function materialize(snap) {
-    const input = { kind: snap.kind, hash: snap.hash, text: snap.text ?? '' };
+    const input = { kind: snap.kind, hash: snap.hash, text: '' };
     if (snap.kind === 'text') {
+      input.text = clipboard.readText();
       if (snap.formats.includes('text/html')) input.html = clipboard.readHTML();
       if (snap.formats.includes('text/rtf')) input.rtf = clipboard.readRTF();
     } else if (snap.kind === 'image') {
@@ -78,6 +92,7 @@ export function startCapture({ store, persistence, settings, log = console.log }
       const snap = snapshot();
       if (!snap || snap.hash === lastHash) return;
       lastHash = snap.hash;
+      if (!snap.kind) return; // unparsable file url: remembered so it is not retried every tick
       const input = materialize(snap);
       if (!input) return;
       const { existed } = store.add(input);
@@ -88,15 +103,28 @@ export function startCapture({ store, persistence, settings, log = console.log }
     }
   }
 
-  timer = setInterval(tick, settings.pollMs);
-  tick();
+  if (settings.pollMs > 0) {
+    timer = setInterval(tick, settings.pollMs);
+    tick();
+  }
 
   return {
+    tick,
     stop() { if (timer) clearInterval(timer); timer = null; },
     pause() { paused = true; },
-    resume() { paused = false; lastHash = null; },
+    // Whatever sits on the clipboard at resume time was put there while paused: skip it.
+    resume() {
+      let snap = null;
+      try { snap = snapshot(); } catch { /* ignore */ }
+      lastHash = snap?.hash ?? null;
+      paused = false;
+    },
     isPaused() { return paused; },
+    // Hash of the current clipboard content, computed the same way the poller does.
+    currentHash() {
+      try { return snapshot()?.hash ?? null; } catch { return null; }
+    },
     // Called after Klipp itself writes to the clipboard so the poller treats it as seen.
-    markSeen(hash) { lastHash = hash; },
+    markSeen(hash) { if (hash) lastHash = hash; },
   };
 }

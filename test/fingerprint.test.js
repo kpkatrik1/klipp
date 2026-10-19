@@ -63,3 +63,18 @@ test('fileHash is deterministic', () => {
   assert.equal(fileHash('/a/b'), fileHash('/a/b'));
   assert.notEqual(fileHash('/a/b'), textHash('/a/b'));
 });
+
+test('textHash accepts utf8 bytes and matches the string hash', () => {
+  assert.equal(textHash(Buffer.from('hej då', 'utf8')), textHash('hej då'));
+  assert.equal(textHash(Buffer.from('  \n\t ')), null);
+});
+
+test('textHash of very large text is length-sensitive and cheap', () => {
+  const big = Buffer.alloc(5 * 1024 * 1024, 0x61);
+  const t0 = performance.now();
+  const h1 = textHash(big);
+  const ms = performance.now() - t0;
+  assert.ok(ms < 20, `took ${ms} ms`);
+  assert.notEqual(h1, textHash(Buffer.alloc(5 * 1024 * 1024 + 1, 0x61)));
+  assert.equal(h1, textHash(Buffer.alloc(5 * 1024 * 1024, 0x61)));
+});

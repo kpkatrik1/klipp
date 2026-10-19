@@ -18,6 +18,8 @@ npm run install:mac
 
 Vill du bara bygga utan att installera: `npm run build:mac` (resultatet hamnar i `dist/`).
 
+Om `git` saknas frågar macOS om du vill installera Command Line Tools. Det är inte Xcode och räcker gott (Homebrew installerar dem ändå). Repot är privat, så klona med ett konto som har åtkomst (`gh auth login` eller en token).
+
 ## Behörigheter
 
 macOS frågar efter tre saker. Alla finns under Systeminställningar → Integritet och säkerhet.
@@ -36,7 +38,23 @@ Appen signeras ad hoc som standard. Då ser macOS varje ny bygge som ett nytt pr
 
 1. Öppna Nyckelhanteraren → meny Nyckelhanterare → Certifikatassistent → Skapa ett certifikat…
 2. Namn: `Klipp Dev`. Identitetstyp: Självsignerad rot. Certifikattyp: Kodsignering. Skapa.
-3. Kör `npm run install:mac` igen. Skriptet hittar certifikatet och använder det.
+3. Kör `npm run install:mac` igen. Skriptet hittar certifikatet (även om det står som "ej betrott") och signerar med det.
+
+Efter en ad hoc-bygge räcker det inte att slå av och på Klipp under Hjälpmedel: ta bort Klipp med minus-knappen och lägg till `/Applications/Klipp.app` igen.
+
+## Kontrollera efter första installationen
+
+Det här går bara att verifiera på en riktig Mac:
+
+- Ctrl+Ö öppnar Klipp ovanpå Safari, Enter klistrar in i Safari och fokus går tillbaka dit (inte till Finder).
+- Klistra in samma bild två gånger från historiken: det ska fortfarande bara finnas ett bildklipp.
+- Cmd+W i Klipp-fönstret stänger bara fönstret; Ctrl+Ö öppnar det igen.
+- Två nästan identiska skärmdumpar efter varandra ger två klipp.
+- Lämna en stor skärmdump eller 10 MB text på urklipp i en minut: Klipp ska ligga nära 0 % CPU i Aktivitetskontroll.
+- Kopiera en fil i Finder, välj klippet i Klipp och klistra in i en annan Finder-mapp.
+- Shift+Enter i VS Code ger ren text.
+- "Starta vid inloggning" i menyn förblir ikryssad när menyn öppnas igen.
+- Inga "Klipp vill klistra in från …"-dialoger efter att Tillåt är satt.
 
 ## Kortkommandon
 
@@ -55,7 +73,7 @@ Appen signeras ad hoc som standard. Då ser macOS varje ny bygge som ett nytt pr
 | Cmd+E | Redigera klippets text (Cmd+Enter sparar, Esc avbryter) |
 | Cmd+Backspace | Ta bort markerade klipp (fästa klipp tas bort via högerklick) |
 | Cmd+M eller högerklick | Meny: klistra in, fäst, flytta till grupp, byt namn, redigera, ta bort |
-| Cmd+[ / Cmd+] | Byt flik (Historik, Fästa, grupper) |
+| Cmd+[ / Cmd+] (Cmd+Alt+8 / Cmd+Alt+9 på svenskt tangentbord), Ctrl+Tab | Byt flik (Historik, Fästa, grupper) |
 
 Fästa klipp rensas aldrig automatiskt. Grupper skapas med `+` i flikraden eller via menyn Flytta till grupp → Ny grupp. Högerklicka på en gruppflik för att byta namn eller ta bort gruppen (klippen ligger kvar under Fästa).
 

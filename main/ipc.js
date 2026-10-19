@@ -7,6 +7,7 @@ import { textHash } from './fingerprint.js';
 
 export function registerIpc({ store, persistence, settings, popup, paste, log = console.log }) {
   const send = (channel, ...args) => {
+    if (popup.window.isDestroyed()) return;
     const wc = popup.window.webContents;
     if (!wc.isDestroyed()) wc.send(channel, ...args);
   };
@@ -89,7 +90,7 @@ export function registerIpc({ store, persistence, settings, popup, paste, log = 
         ],
       },
       { label: 'Byt namn…', enabled: single, click: () => send('ui:command', 'rename', primary.id) },
-      { label: 'Redigera text…', enabled: single && primary.kind !== 'image', click: () => send('ui:command', 'edit', primary.id) },
+      { label: 'Redigera text…', enabled: single && primary.kind === 'text', click: () => send('ui:command', 'edit', primary.id) },
       { type: 'separator' },
       { label: 'Ta bort', click: () => { for (const id of allIds) removeClip(id); } },
     ];

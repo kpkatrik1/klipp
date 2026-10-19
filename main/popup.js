@@ -58,6 +58,15 @@ export function createPopup({ settings, persistence, log = console.log }) {
     win.setAlwaysOnTop(true, 'floating');
   }
   win.setMenuBarVisibility(false);
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  let quitting = false;
+  app.on('before-quit', () => { quitting = true; });
+  win.on('close', (e) => {
+    if (quitting) return;
+    e.preventDefault(); // Cmd+W etc. hide the popup instead of destroying it
+    popup.hide();
+  });
   win.loadFile(path.join(import.meta.dirname, '..', 'renderer', 'index.html'));
 
   let blurHold = 0; // >0 while a native menu/dialog owns focus; blur then does not hide
@@ -68,9 +77,10 @@ export function createPopup({ settings, persistence, log = console.log }) {
 
   const popup = {
     window: win,
-    isVisible: () => win.isVisible(),
+    isVisible: () => !win.isDestroyed() && win.isVisible(),
 
     show() {
+      if (win.isDestroyed()) return;
       const cursor = screen.getCursorScreenPoint();
       const workArea = screen.getDisplayNearestPoint(cursor).workArea;
       const { x, y } = placeWindow(cursor, size, workArea);
@@ -83,14 +93,14 @@ export function createPopup({ settings, persistence, log = console.log }) {
     },
 
     async hide() {
-      if (!win.isVisible()) return;
+      if (win.isDestroyed() || !win.isVisible()) return;
       win.hide();
       if (darwin) app.hide(); // hands focus back to the previously active app
       await sleep(50);
     },
 
     toggle() {
-      if (win.isVisible()) popup.hide(); else popup.show();
+      if (popup.isVisible()) popup.hide(); else popup.show();
     },
 
     // Run fn (e.g. Menu.popup) without the resulting blur hiding the window.
@@ -101,7 +111,7 @@ export function createPopup({ settings, persistence, log = console.log }) {
   };
 
   win.on('blur', () => {
-    if (settings.hideOnBlur && blurHold === 0 && win.isVisible()) popup.hide();
+    if (settings.hideOnBlur && blurHold === 0 && popup.isVisible()) popup.hide();
   });
   win.on('closed', () => log('popup: fönstret stängdes'));
   win.webContents.on('render-process-gone', (_e, d) => log('popup: renderer dog', d.reason));

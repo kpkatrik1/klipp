@@ -67,7 +67,11 @@ export function createStore(initial, opts = {}) {
       if ('title' in patch) {
         if (patch.title) c.title = patch.title; else delete c.title;
       }
-      if (typeof patch.text === 'string') c.text = patch.text;
+      if (typeof patch.text === 'string') {
+        c.text = patch.text;
+        delete c.html; // rich content would otherwise paste the old text
+        delete c.rtf;
+      }
       if (typeof patch.hash === 'string') c.hash = patch.hash;
       emit();
       return c;

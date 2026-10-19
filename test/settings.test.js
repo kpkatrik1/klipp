@@ -38,3 +38,13 @@ test('hotkeyCandidates win32 adds fallback and dedupes', () => {
   assert.deepEqual(hotkeyCandidates(defaultSettings('win32'), 'win32'), ['Control+`', 'Control+Alt+V']);
   assert.deepEqual(hotkeyCandidates({ hotkey: 'Control+Alt+V' }, 'win32'), ['Control+Alt+V']);
 });
+
+test('mergeSettings clamps numbers to sane ranges', () => {
+  const s = mergeSettings({ pollMs: 0, maxClips: 0, pasteDelayMs: -5, previewChars: 1, thumbMaxPx: 100000 }, 'darwin');
+  assert.equal(s.pollMs, 300);
+  assert.equal(s.maxClips, 500);
+  assert.equal(s.pasteDelayMs, 120);
+  assert.equal(s.previewChars, 500);
+  assert.equal(s.thumbMaxPx, 200);
+  assert.equal(mergeSettings({ pollMs: 1000, maxClips: 20 }, 'darwin').maxClips, 20);
+});

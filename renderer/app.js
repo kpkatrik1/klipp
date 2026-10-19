@@ -285,7 +285,7 @@
 
   function startEdit(id) {
     const item = state.items.find(i => i.id === id);
-    if (!item || item.kind === 'image') return;
+    if (!item || item.kind !== 'text') return;
     state.editing = { id };
     api.getFullText(id).then((text) => {
       const ta = document.createElement('textarea');

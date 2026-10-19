@@ -60,7 +60,7 @@ export async function simulatePaste(log = console.log) {
 export async function pasteClips({ clips, plain, store, persistence, settings, capture, hidePopup, log = console.log }) {
   if (!clips.length) return;
   writePayload(clips, plain, persistence);
-  if (clips.length === 1 && capture) capture.markSeen(clips[0].hash);
+  if (capture) capture.markSeen(capture.currentHash());
   for (const c of clips) store.touch(c.id);
   await hidePopup();
   await sleep(settings.pasteDelayMs);

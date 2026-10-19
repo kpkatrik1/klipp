@@ -163,3 +163,13 @@ test('list orders newest insertion first when timestamps tie', () => {
   s.add(textInput('newer'));
   assert.deepEqual(s.list('history').map(c => c.text), ['newer', 'older']);
 });
+
+test('update with new text drops stale html and rtf', () => {
+  const s = createStore(undefined, { now: clock(), id: ids });
+  const a = s.add(textInput('a', { html: '<b>a</b>', rtf: '{\rtf1 a}' })).clip;
+  s.update(a.id, { title: 'T' });
+  assert.equal(s.get(a.id).html, '<b>a</b>', 'title-only edit keeps rich content');
+  s.update(a.id, { text: 'b', hash: 'h:b' });
+  assert.equal(s.get(a.id).html, undefined);
+  assert.equal(s.get(a.id).rtf, undefined);
+});

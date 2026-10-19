@@ -69,8 +69,11 @@ async function build() {
 
 // 3. Signera: "Klipp Dev" om certifikatet finns i nyckelringen, annars ad hoc.
 function sign(app) {
-  const ids = tryRun('security', ['find-identity', '-v', '-p', 'codesigning']).stdout ?? '';
-  const identity = ids.includes('"Klipp Dev"') ? 'Klipp Dev' : '-';
+  // No -v: a self-signed certificate is "untrusted" until the user marks it, but codesign can
+  // still sign with it. Sign by SHA-1 hash so two certificates with the same name never collide.
+  const ids = tryRun('security', ['find-identity', '-p', 'codesigning']).stdout ?? '';
+  const match = ids.match(/([0-9A-F]{40}) "Klipp Dev"/);
+  const identity = match ? match[1] : '-';
   run('codesign', ['--force', '--deep', '--sign', identity, app]);
   if (identity === '-') {
     console.log('Signerad ad hoc. Obs: behörigheter (Hjälpmedel m.m.) måste ges om efter varje ombyggnad.');
