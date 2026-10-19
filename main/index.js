@@ -75,7 +75,11 @@ app.whenReady().then(() => {
   const activeHotkey = registerHotkey(candidates, () => popup.toggle());
   log('hotkey:', activeHotkey ?? 'INGEN (registrering misslyckades)', 'kandidater:', candidates.join(', '));
 
-  createTray({ onToggle: () => popup.toggle(), hotkeyLabel: settings.hotkeyLabel });
+  createTray({
+    onToggle: () => popup.toggle(),
+    onClearHistory: () => { for (const c of store.clearHistory()) persistence.deleteImages(c); },
+    capture, settings, activeHotkey, userData,
+  });
 
   app.on('second-instance', () => popup.show());
   app.on('before-quit', () => persistence.flush());
