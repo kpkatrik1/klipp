@@ -6,12 +6,18 @@ import { createStore } from './store.js';
 import { createPersistence } from './persistence.js';
 import { defaultSettings, mergeSettings, hotkeyCandidates } from './settings.js';
 import { startCapture } from './capture.js';
+import { pasteClips } from './paster.js';
 import { createTray } from './tray.js';
+import { registerKlippScheme, createPopup } from './popup.js';
+import { registerIpc } from './ipc.js';
 
 const log = (...args) => console.log(new Date().toISOString(), ...args);
 
 app.setName('Klipp');
-app.setPath('userData', path.join(app.getPath('appData'), 'Klipp'));
+app.setPath('userData', process.env.KLIPP_SMOKE
+  ? path.join(process.env.KLIPP_SMOKE, 'userData') // smoke runs never touch real data
+  : path.join(app.getPath('appData'), 'Klipp'));
+registerKlippScheme();
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -56,16 +62,29 @@ app.whenReady().then(() => {
   store.onChange(() => persistence.scheduleSave(store.toJSON()));
 
   const capture = startCapture({ store, persistence, settings, log });
+  const popup = createPopup({ settings, persistence, log });
 
-  const ctx = { app, store, persistence, settings, capture, log, userData };
-  ctx.toggle = () => {}; // replaced by the popup in Task 8
+  const paste = (ids, plain) => pasteClips({
+    clips: ids.map(id => store.get(id)).filter(Boolean),
+    plain, store, persistence, settings, capture, log,
+    hidePopup: () => popup.hide(),
+  });
+  registerIpc({ store, persistence, settings, popup, paste, log });
 
   const candidates = hotkeyCandidates(settings);
-  ctx.activeHotkey = registerHotkey(candidates, () => ctx.toggle());
-  log('hotkey:', ctx.activeHotkey ?? 'INGEN (registrering misslyckades)', 'kandidater:', candidates.join(', '));
+  const activeHotkey = registerHotkey(candidates, () => popup.toggle());
+  log('hotkey:', activeHotkey ?? 'INGEN (registrering misslyckades)', 'kandidater:', candidates.join(', '));
 
-  ctx.tray = createTray({ onToggle: () => ctx.toggle(), hotkeyLabel: settings.hotkeyLabel });
+  createTray({ onToggle: () => popup.toggle(), hotkeyLabel: settings.hotkeyLabel });
 
+  app.on('second-instance', () => popup.show());
   app.on('before-quit', () => persistence.flush());
+  app.on('will-quit', () => globalShortcut.unregisterAll());
   log('Klipp startad. Data i', userData);
+
+  if (process.env.KLIPP_SMOKE) {
+    import('./smoke.js')
+      .then(({ runSmoke }) => runSmoke({ app, popup, store, persistence, dir: process.env.KLIPP_SMOKE, log }))
+      .catch((err) => { log('smoke: kunde inte starta', err); app.exit(1); });
+  }
 });

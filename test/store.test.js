@@ -156,3 +156,10 @@ test('toJSON round-trips through createStore', () => {
   assert.equal(s2.toJSON().groups[0].id, g.id);
   assert.equal(s2.toJSON().version, 1);
 });
+
+test('list orders newest insertion first when timestamps tie', () => {
+  const s = createStore(undefined, { now: () => 5000, id: ids });
+  s.add(textInput('older'));
+  s.add(textInput('newer'));
+  assert.deepEqual(s.list('history').map(c => c.text), ['newer', 'older']);
+});

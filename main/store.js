@@ -56,7 +56,8 @@ export function createStore(initial, opts = {}) {
       let clips = state.clips;
       if (view === 'pinned') clips = clips.filter(c => c.pinned);
       else if (view !== 'history') clips = clips.filter(c => c.pinned && c.groupId === view);
-      return [...clips].sort((a, b) => b.lastUsedAt - a.lastUsedAt);
+      // newest first; on equal timestamps the later insertion wins
+      return clips.map((c, i) => [c, i]).sort((a, b) => (b[0].lastUsedAt - a[0].lastUsedAt) || (b[1] - a[1])).map(([c]) => c);
     },
 
     get(id) { return byId(id); },
