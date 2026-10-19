@@ -1,0 +1,23 @@
+{
+  "name": "klipp",
+  "productName": "Klipp",
+  "version": "0.1.0",
+  "description": "Ditto-liknande urklippshanterare för macOS",
+  "type": "module",
+  "main": "main/index.js",
+  "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/**/*.test.js\"",
+    "icons": "node scripts/make-icons.mjs",
+    "build:mac": "node scripts/build-mac.mjs",
+    "install:mac": "node scripts/build-mac.mjs --install"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "43.8.0"
+  }
+}
